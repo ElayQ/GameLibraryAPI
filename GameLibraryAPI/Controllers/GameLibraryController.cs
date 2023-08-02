@@ -1,10 +1,7 @@
-using System.Runtime.InteropServices.JavaScript;
-using System.Text.Json.Serialization;
 using GameLibraryAPI.Data;
 using GameLibraryAPI.Models;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.SqlServer.Query.Internal;
+using Microsoft.IdentityModel.Tokens;
 
 namespace GameLibraryAPI.Controllers;
 
@@ -23,35 +20,47 @@ public class GameLibraryController : Controller
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
+        if (game.Genres.IsNullOrEmpty()) 
+            return BadRequest(new {HttpResponseMessage = "Incorrect genre input" });
         _dbContext.Games.Add(game);
         _dbContext.SaveChanges();
         return CreatedAtAction(nameof(Get), new { id = game.Id }, game);
     }
-
-    /*[HttpGet]
-    public IActionResult Get(List<String> Genres)
-    {
-        if (_dbContext.Games == null)
-            return NotFound(new {HttpResponseMessage = "Game Library is Empty"});
-        return Ok(_dbContext.Games);
-    }*/
     
     [HttpGet]
-    public IActionResult Get()
+    public IActionResult Get(string[] genresFilter)
     {
-        if (_dbContext.Games == null)
+        if (_dbContext.Games.IsNullOrEmpty())
             return NotFound(new {HttpResponseMessage = "Game Library is Empty"});
-        return Ok(_dbContext.Games);
+        if (genresFilter.IsNullOrEmpty()) return Ok(_dbContext.Games);
+        int count = 0;
+        //string[] genres = genresFilter[0].Split(',');
+        List<GameLibrary> games = new List<GameLibrary>();
+        foreach (var game in _dbContext.Games)
+        {
+            if (genresFilter.Length == 1)
+            {
+                if (game.Genres.Contains(genresFilter[0])) games.Add(game);
+            }
+            else foreach (var genre in genresFilter)
+            {
+                if (game.Genres.Contains(genre)) count++;
+                if (count == genresFilter.Length) games.Add(game);
+            }
+            count = 0;
+        }
+        
+        return Ok(games);
     }
 
     [HttpGet("{id:int}")]
     public IActionResult Get(int id)
     {
-        if (_dbContext.Games == null)
-            return NotFound();
+        if (_dbContext.Games.IsNullOrEmpty())
+            return NotFound(new {HttpResponseMessage = "Game Library is Empty"});
         var game = _dbContext.Games.Find(id);
         if (game == null)
-            return NotFound();
+            return NotFound(new {HttpResponseMessage = "Game with input ID not found"});
         return Ok(game);
     }
 
@@ -60,6 +69,8 @@ public class GameLibraryController : Controller
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
+        if (game.Genres.IsNullOrEmpty()) 
+            return BadRequest(new {HttpResponseMessage = "Incorrect genre input" });
         var existingGame = _dbContext.Games.SingleOrDefault(g => g.Id == game.Id);
         if (existingGame == null) return NotFound();
         existingGame.Name = game.Name;
@@ -71,27 +82,30 @@ public class GameLibraryController : Controller
     }
     
     [HttpDelete]
-    public IActionResult DeleteAll()
+    public IActionResult Delete()
     {
+        if (_dbContext.Games.IsNullOrEmpty())
+            return NotFound(new {HttpResponseMessage = "Game Library is Empty"});
+        
         foreach (var g in _dbContext.Games)
         {
             _dbContext.Games.Remove(g);
         }
 
         _dbContext.SaveChanges();
-        return Ok();
+        return Ok(new { HttpResponseMessage = "Deleted successfully"});
     }
     
     [HttpDelete("{id:int}")]
     public IActionResult Delete(int id)
     {
-        if (_dbContext.Games == null)
-            return NotFound();
+        if (_dbContext.Games.IsNullOrEmpty())
+            return NotFound(new {HttpResponseMessage = "Game Library is Empty"});
 
         var game = _dbContext.Games.Find(id);
         if (game == null)
         {
-            return NotFound();
+            return NotFound(new {HttpResponseMessage = "Game with input ID not found"});
         }
 
         _dbContext.Games.Remove(game);

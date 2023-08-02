@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Text.Json.Serialization;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace GameLibraryAPI.Models;
 
@@ -30,14 +31,19 @@ public class GameLibrary
         set
         {
             GenresId.Clear();
+            var fields = typeof(Genre).GetFields().Where(fi => fi.IsLiteral).ToArray();
             foreach (var g in value)
             {
-                GenresId.Add((Genre)Enum.Parse(typeof(Genre), g));
+                foreach (var f in fields)
+                {
+                    if (g == f.Name)
+                        GenresId.Add((Genre)Enum.Parse(typeof(Genre), g));
+                }
             }
         }
     }
-
-    [NotMapped] private List<Genre> GenresId { get; set; } = new();
+    
+    [NotMapped] private List<Genre> GenresId { get; } = new();
 }
 
 public enum Genre
